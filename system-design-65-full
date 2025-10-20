@@ -1,0 +1,573 @@
+# 65 вопросов и ответов по System Design для Senior Java-разработчиков
+
+## Содержание
+
+### Основы System Design (вопросы 1-15)
+1. [Что такое System Design?](#вопрос-1)
+2. [High-Level Design vs Low-Level Design](#вопрос-2)
+3. [Functional vs Non-Functional Requirements](#вопрос-3)
+4. [Scalability — что это?](#вопрос-4)
+5. [Vertical Scaling vs Horizontal Scaling](#вопрос-5)
+6. [CAP Theorem](#вопрос-6)
+7. [ACID vs BASE](#вопрос-7)
+8. [Latency vs Throughput](#вопрос-8)
+9. [Consistency Models](#вопрос-9)
+10. [Availability и High Availability](#вопрос-10)
+11. [Single Point of Failure (SPOF)](#вопрос-11)
+12. [Fault Tolerance и Resilience](#вопрос-12)
+13. [Load Balancer — зачем нужен?](#вопрос-13)
+14. [Reverse Proxy vs Forward Proxy](#вопрос-14)
+15. [API Gateway](#вопрос-15)
+
+### Архитектурные паттерны (вопросы 16-30)
+16. [Monolithic Architecture](#вопрос-16)
+17. [Microservices Architecture](#вопрос-17)
+18. [Service-Oriented Architecture (SOA)](#вопрос-18)
+19. [Event-Driven Architecture](#вопрос-19)
+20. [CQRS Pattern](#вопрос-20)
+21. [Saga Pattern](#вопрос-21)
+22. [Circuit Breaker Pattern](#вопрос-22)
+23. [Strangler Fig Pattern](#вопрос-23)
+24. [Sidecar Pattern](#вопрос-24)
+25. [Backend for Frontend (BFF)](#вопрос-25)
+26. [API Gateway Pattern](#вопрос-26)
+27. [Service Mesh](#вопрос-27)
+28. [Database per Service](#вопрос-28)
+29. [Shared Database](#вопрос-29)
+30. [Two-Phase Commit vs Saga](#вопрос-30)
+
+### Базы данных и масштабирование (вопросы 31-45)
+31. [SQL vs NoSQL](#вопрос-31)
+32. [Database Indexing](#вопрос-32)
+33. [Database Sharding](#вопрос-33)
+34. [Database Partitioning](#вопрос-34)
+35. [Database Replication](#вопрос-35)
+36. [Master-Slave Replication](#вопрос-36)
+37. [Master-Master Replication](#вопрос-37)
+38. [Denormalization](#вопрос-38)
+39. [Connection Pooling](#вопрос-39)
+40. [N+1 Query Problem](#вопрос-40)
+41. [Database Read Replicas](#вопрос-41)
+42. [Write-Heavy vs Read-Heavy Systems](#вопрос-42)
+43. [Eventually Consistent Systems](#вопрос-43)
+44. [Distributed Transactions](#вопрос-44)
+45. [Database Migration Strategies](#вопрос-45)
+
+### Кэширование и производительность (вопросы 46-60)
+46. [Caching Strategies](#вопрос-46)
+47. [Cache-Aside (Lazy Loading)](#вопрос-47)
+48. [Write-Through Cache](#вопрос-48)
+49. [Write-Behind Cache](#вопрос-49)
+50. [Cache Invalidation](#вопрос-50)
+51. [Redis vs Memcached](#вопрос-51)
+52. [CDN (Content Delivery Network)](#вопрос-52)
+53. [Cache Eviction Policies](#вопрос-53)
+54. [Cache Stampede Problem](#вопрос-54)
+55. [HTTP Caching](#вопрос-55)
+56. [Load Balancing Algorithms](#вопрос-56)
+57. [Rate Limiting](#вопрос-57)
+58. [Throttling vs Rate Limiting](#вопрос-58)
+59. [Message Queues](#вопрос-59)
+60. [Asynchronous Processing](#вопрос-60)
+
+### Практические системы и best practices (вопросы 61-65)
+61. [Design URL Shortener](#вопрос-61)
+62. [Design Social Media Feed](#вопрос-62)
+63. [Design Chat Application](#вопрос-63)
+64. [Monitoring и Observability](#вопрос-64)
+65. [System Design Interview Process](#вопрос-65)
+
+---
+
+## Вопрос 1
+
+**Что такое System Design?**
+
+System Design — это процесс определения архитектуры, компонентов, интерфейсов и данных для системы, удовлетворяющей specified requirements; включает принятие решений о технологиях, паттернах, trade-offs между consistency/availability/performance, и обеспечивает scalability, reliability, maintainability системы; на интервью оценивает способность кандидата проектировать large-scale distributed systems с учётом real-world constraints (budget, time, resources) и требований бизнеса.
+
+**Ключевые аспекты:**
+- **Requirements gathering**: понимание functional и non-functional требований
+- **High-level design**: определение major компонентов и их взаимодействия
+- **Deep dive**: детализация критичных компонентов
+- **Trade-offs**: обоснование выбора между alternatives
+- **Scalability**: планирование роста нагрузки
+- **Bottlenecks**: идентификация и решение узких мест
+
+**Типичный workflow интервью:**
+```
+1. Clarify requirements (5-10 min)
+   - Functional: что система должна делать?
+   - Non-functional: performance, scale, availability
+
+2. High-level design (10-15 min)
+   - Draw major components
+   - Define data flow
+   - Identify APIs
+
+3. Deep dive (20-30 min)
+   - Database design
+   - Scalability решения
+   - Caching strategy
+   - Load balancing
+
+4. Trade-offs и bottlenecks (10-15 min)
+   - Discuss alternatives
+   - Identify potential issues
+   - Propose optimizations
+```
+
+**Принципы хорошего design:**
+- **KISS** (Keep It Simple, Stupid): избегайте over-engineering
+- **YAGNI** (You Aren't Gonna Need It): не добавляйте unnecessary features
+- **DRY** (Don't Repeat Yourself): reuse components
+- **Separation of Concerns**: разделение ответственности
+- **Loose Coupling**: минимизация dependencies между компонентами
+- **High Cohesion**: связанная functionality в одном месте
+
+---
+
+## Вопрос 2
+
+**High-Level Design vs Low-Level Design**
+
+High-Level Design (HLD) определяет overall архитектуру системы с major компонентами, их relationships, data flow и integration points без implementation details; Low-Level Design (LLD) детализирует каждый component с class diagrams, algorithms, data structures, APIs и конкретными технологиями; HLD даёт bird's-eye view для stakeholders, LLD — implementation roadmap для developers.
+
+**High-Level Design (HLD):**
+
+**Фокус:** Architecture, system components, data flow, external interfaces.
+
+**Содержит:**
+- System architecture diagram
+- Component взаимодействия
+- Database choice (SQL vs NoSQL)
+- High-level APIs
+- Third-party integrations
+- Infrastructure (servers, load balancers)
+
+**Пример HLD (E-commerce):**
+```
+Client (Web/Mobile)
+      ↓
+   CDN (Static content)
+      ↓
+Load Balancer
+      ↓
+┌─────────┬──────────┬──────────┐
+│  Auth   │  Product │  Order   │
+│ Service │  Service │ Service  │
+└─────────┴──────────┴──────────┘
+      ↓         ↓          ↓
+┌──────────────────────────────┐
+│     Message Queue (Kafka)     │
+└──────────────────────────────┘
+      ↓
+┌─────────┬──────────┬──────────┐
+│  User   │ Product  │  Order   │
+│   DB    │    DB    │   DB     │
+└─────────┴──────────┴──────────┘
+      ↓
+   Cache (Redis)
+```
+
+**Low-Level Design (LLD):**
+
+**Фокус:** Classes, methods, algorithms, data structures, detailed APIs.
+
+**Содержит:**
+- Class diagrams
+- Sequence diagrams
+- Database schema (tables, columns, indexes)
+- API contracts (request/response)
+- Error handling
+- Algorithm implementations
+
+**Пример LLD (User Service):**
+```
+// Class design
+public class UserService {
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider tokenProvider;
+    
+    public UserDTO registerUser(RegisterRequest request) {
+        // Validate input
+        validateRegistrationRequest(request);
+        
+        // Check if user exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new UserAlreadyExistsException();
+        }
+        
+        // Create user entity
+        User user = User.builder()
+            .email(request.getEmail())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .name(request.getName())
+            .createdAt(Instant.now())
+            .build();
+        
+        // Save to database
+        user = userRepository.save(user);
+        
+        // Return DTO
+        return UserMapper.toDTO(user);
+    }
+}
+
+// Database schema
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP,
+    INDEX idx_email (email)
+);
+```
+
+**Когда использовать:**
+- **HLD**: Planning phase, stakeholder presentations, architecture reviews
+- **LLD**: Implementation phase, code reviews, developer onboarding
+
+---
+
+## Вопрос 3
+
+**Functional vs Non-Functional Requirements**
+
+Functional Requirements описывают WHAT система должна делать (features, functionality, business logic): user registration, search products, place orders; Non-Functional Requirements определяют HOW система должна работать (quality attributes): performance, scalability, availability, security, usability; оба типа critical для successful system design, но non-functional часто определяют architecture choices.
+
+**Functional Requirements:**
+
+**Определение:** Specific behaviors или functions системы.
+
+**Примеры (Twitter-like app):**
+- User может создать account
+- User может post tweets (max 280 characters)
+- User может follow/unfollow других users
+- User видит timeline с tweets от followed users
+- User может like/retweet tweets
+- Search tweets по keywords
+- Trending topics отображение
+
+**Как собирать:**
+```
+Вопросы interviewer:
+- What features нужны в MVP?
+- Who are the users?
+- What are primary use cases?
+- Any special business rules?
+```
+
+**Non-Functional Requirements:**
+
+**Категории:**
+- **Performance**: latency, throughput, response time
+- **Scalability**: handle growth (users, data, requests)
+- **Availability**: uptime (99.9%, 99.99%)
+- **Reliability**: MTBF (Mean Time Between Failures)
+- **Security**: authentication, authorization, encryption
+- **Maintainability**: code quality, documentation
+- **Usability**: user experience, accessibility
+
+**Примеры (Twitter-like app):**
+```
+Performance:
+- Timeline load < 200ms (p99)
+- Tweet post latency < 100ms
+
+Scalability:
+- Support 100M daily active users
+- Handle 10K tweets/second
+- 1B tweets stored
+
+Availability:
+- 99.99% uptime (52 min downtime/year)
+- No single point of failure
+
+Consistency:
+- Eventual consistency для timeline (допустимо)
+- Strong consistency для payments
+```
+
+**Impact на design:**
+
+**High availability requirement:**
+```
+→ Multi-region deployment
+→ Database replication
+→ Load balancing
+→ Failover mechanisms
+```
+
+**High performance requirement:**
+```
+→ Caching (Redis/Memcached)
+→ CDN для static content
+→ Database indexing
+→ Asynchronous processing
+```
+
+**High scalability requirement:**
+```
+→ Horizontal scaling
+→ Database sharding
+→ Microservices architecture
+→ Message queues
+```
+
+**Prioritization:**
+
+Не все требования equally important:
+```
+P0 (Must have): Core features, critical for MVP
+P1 (Should have): Important but not blocking launch
+P2 (Nice to have): Future enhancements
+```
+
+---
+
+## Вопрос 4
+
+**Scalability — что это?**
+
+Scalability — это способность системы handle increased load (users, requests, data) через добавление resources без significant performance degradation; измеряется ability поддерживать throughput и latency при росте traffic; хорошо designed scalable система can grow from thousands к millions users с predictable costs и reasonable engineering efforts.
+
+**Типы scalability:**
+
+**1. Vertical Scaling (Scale Up):**
+```
+Добавление resources к existing machine:
+- More CPU cores
+- More RAM
+- Faster storage (SSD → NVMe)
+- Better network card
+
+Pros:
+✅ Simple implementation (no code changes)
+✅ No distributed system complexity
+✅ Consistent data (single machine)
+
+Cons:
+❌ Hardware limits (max CPU/RAM)
+❌ Expensive (exponential cost)
+❌ Single point of failure
+❌ Downtime при upgrades
+
+Example:
+Database server: 4 CPU, 16GB RAM → 32 CPU, 256GB RAM
+```
+
+**2. Horizontal Scaling (Scale Out):**
+```
+Добавление more machines to cluster:
+- Add application servers
+- Add database replicas
+- Add cache nodes
+
+Pros:
+✅ No theoretical limit
+✅ Linear cost scaling
+✅ Better fault tolerance
+✅ No downtime (rolling updates)
+
+Cons:
+❌ Distributed system complexity
+❌ Data consistency challenges
+❌ Network latency
+❌ Requires code changes
+
+Example:
+Web servers: 2 servers → 10 servers → 100 servers
+```
+
+**Scalability dimensions:**
+
+**Request scalability:**
+```
+Handle increased number of requests/second
+
+Solutions:
+- Load balancing (distribute across servers)
+- Caching (reduce backend load)
+- Async processing (non-blocking)
+- CDN (offload static content)
+```
+
+**Data scalability:**
+```
+Handle increased data volume
+
+Solutions:
+- Database sharding (horizontal partitioning)
+- Database partitioning (vertical split)
+- Data archiving (move old data)
+- NoSQL databases (built for scale)
+```
+
+**User scalability:**
+```
+Handle increased concurrent users
+
+Solutions:
+- Stateless services (no session affinity)
+- Session storage (Redis)
+- Connection pooling
+- WebSocket connections management
+```
+
+**Scalability metrics:**
+
+```
+Throughput: requests/second система может handle
+Latency: response time под load
+Resource utilization: CPU, memory, network usage
+Cost per user: expenses при росте users
+Error rate: failures при increased load
+```
+
+**Example calculation:**
+
+```
+Current: 1000 requests/sec, 100ms latency
+Target: 10,000 requests/sec, <200ms latency
+
+Vertical scaling:
+1 server (32 cores) → 1 server (128 cores)
+Cost: $500/mo → $5,000/mo (10x)
+
+Horizontal scaling:
+1 server → 10 servers (same specs)
+Cost: $500/mo → $5,000/mo (10x)
+But: better fault tolerance, no limits
+```
+
+**Scalability patterns:**
+
+```
+Stateless architecture: любой server handle любой request
+Database read replicas: scale reads horizontally
+Caching: reduce database load
+Message queues: decouple components, async processing
+CDN: offload static content globally
+Microservices: scale services independently
+```
+
+---
+
+## Вопрос 5
+
+**Vertical Scaling vs Horizontal Scaling**
+
+Vertical Scaling (scaling up) увеличивает capacity одного server через hardware upgrades (CPU, RAM, storage), simple to implement но limited by hardware maximum и creates SPOF; Horizontal Scaling (scaling out) добавляет more servers to distribute load, requires architectural changes (stateless design, load balancing) но provides unlimited scalability, better fault tolerance, и linear cost growth.
+
+**Сравнение:**
+
+| Aspect | Vertical Scaling | Horizontal Scaling |
+|--------|-----------------|-------------------|
+| **Implementation** | Upgrade hardware | Add more servers |
+| **Complexity** | Low (no code changes) | High (distributed system) |
+| **Cost** | Exponential growth | Linear growth |
+| **Limit** | Hardware maximum | Theoretically unlimited |
+| **Downtime** | Required for upgrade | Zero downtime possible |
+| **Fault Tolerance** | SPOF risk | High (redundancy) |
+| **Consistency** | Easy (single machine) | Complex (distributed data) |
+| **Use Case** | Databases, legacy apps | Web servers, microservices |
+
+**Vertical Scaling примеры:**
+
+**Database scaling:**
+```
+PostgreSQL server upgrade:
+Before: 8 cores, 32GB RAM, HDD
+After: 64 cores, 512GB RAM, NVMe SSD
+
+Results:
+- 10x faster queries
+- More concurrent connections
+- Larger working set in memory
+- But: still SPOF, expensive hardware
+```
+
+**Application server:**
+```
+Tomcat instance upgrade:
+Before: 4 cores, 8GB RAM → handles 500 req/sec
+After: 16 cores, 64GB RAM → handles 2000 req/sec
+
+Pros: No load balancer needed, simpler ops
+Cons: Cannot scale beyond 1 machine capacity
+```
+
+**Horizontal Scaling примеры:**
+
+**Web tier scaling:**
+```
+           Load Balancer
+                 ↓
+    ┌────────────┼────────────┐
+    ↓            ↓            ↓
+Server 1      Server 2    Server 3
+(4 cores)     (4 cores)   (4 cores)
+
+Total capacity: 3x single server
+Benefits:
+- If Server 1 fails → traffic redirects to 2, 3
+- Can add Server 4, 5, 6... as needed
+- Rolling updates: no downtime
+```
+
+**Database scaling (read replicas):**
+```
+     Master DB (writes)
+           ↓
+     Replication
+     ↓    ↓    ↓
+Replica1 Replica2 Replica3
+(reads) (reads)  (reads)
+
+Read-heavy workload: scale reads infinitely
+Write-heavy: still bottleneck at master
+```
+
+**Hybrid approach:**
+
+Обычно используется combination:
+```
+1. Vertical scaling до reasonable limit
+   Database: 32 cores, 256GB RAM
+
+2. Horizontal scaling для дальнейшего роста
+   Application: 10+ servers
+   Cache: Redis cluster
+   Database: sharding for writes
+```
+
+**Когда выбирать:**
+
+**Vertical Scaling подходит когда:**
+- Legacy applications (нельзя изменить architecture)
+- Databases requiring strong consistency
+- Quick fix для immediate capacity issue
+- Small to medium scale (до hardware limits)
+
+**Horizontal Scaling подходит когда:**
+- Building new systems (can design for it)
+- Need unlimited growth potential
+- High availability critical
+- Cost-effective long-term scaling
+
+**Real-world example (Netflix):**
+```
+Origin: Single datacenter, vertical scaling
+Problem: Hardware limits, SPOF, slow deploys
+
+Solution: Horizontal scaling
+- 1000s of microservices
+- Multi-region deployment
+- Auto-scaling based on load
+- Chaos engineering (failure resilience)
+
+Result: Handles 200M+ users globally
+```
