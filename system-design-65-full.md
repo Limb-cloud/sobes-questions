@@ -1631,3 +1631,1064 @@ public class ProductService {
 // System остаётся available даже при failures
 // Degraded functionality лучше чем complete outage
 ```
+
+## Вопрос 11
+
+**Single Point of Failure (SPOF)**
+
+SPOF — это компонент системы, failure которого приводит к полной недоступности системы; примеры: single database server, единственный load balancer, central message queue без replication; устраняется через redundancy (multiple instances), replication (data copies), failover mechanisms, и distributed architecture eliminating dependency на single component.
+
+**Примеры SPOF:**
+```
+❌ Single Database Server:
+   App → Single DB
+   DB fails = entire system down
+
+✅ With Replication:
+   App → Load Balancer → DB Master
+                      → DB Replica1
+                      → DB Replica2
+
+❌ Single Load Balancer:
+   Clients → Single LB → Servers
+   LB fails = no routing
+
+✅ HA Load Balancers:
+   Clients → Virtual IP (keepalived)
+          → Primary LB (active)
+          → Secondary LB (standby)
+```
+
+---
+
+## Вопрос 12
+
+**Fault Tolerance и Resilience**
+
+Fault Tolerance — способность системы continue operating при component failures без service interruption; Resilience — способность recover from failures quickly и adapt to changing conditions; достигается через redundancy, graceful degradation, circuit breakers, retry logic, timeouts, bulkheads (isolation), и chaos engineering testing.
+
+**Patterns:**
+```
+// Circuit Breaker
+@Service
+public class ResilientService {
+    
+    @CircuitBreaker(name = "externalApi", fallbackMethod = "fallback")
+    public String callExternalApi() {
+        return externalApiClient.getData();
+    }
+    
+    private String fallback(Exception e) {
+        return cacheService.getCachedData();
+    }
+}
+
+// Retry with exponential backoff
+@Retryable(
+    maxAttempts = 3,
+    backoff = @Backoff(delay = 1000, multiplier = 2)
+)
+public Data fetchData() {
+    return externalService.getData();
+}
+
+// Bulkhead (thread pool isolation)
+@Bulkhead(name = "databaseOperations", type = Bulkhead.Type.THREADPOOL)
+public Result queryDatabase() {
+    return database.query();
+}
+```
+
+---
+
+## Вопрос 13
+
+**Load Balancer — зачем нужен?**
+
+Load Balancer — это компонент распределяющий incoming traffic между multiple servers для horizontal scaling, high availability, и optimal resource utilization; предотвращает overload одного server, provides health checking (removes failed servers), enables zero-downtime deployments, и может work на L4 (TCP/UDP) или L7 (HTTP/HTTPS) level.
+
+**Типы:**
+```
+L4 Load Balancer (Transport Layer):
+- Routes based на IP/Port
+- Fast (no packet inspection)
+- Protocol agnostic
+- Examples: HAProxy (TCP mode), AWS NLB
+
+L7 Load Balancer (Application Layer):
+- Routes based на HTTP headers, URL, cookies
+- Content-based routing
+- SSL termination
+- Examples: Nginx, HAProxy (HTTP mode), AWS ALB
+```
+
+**Algorithms:**
+```
+Round Robin: requests sequentially (server1→server2→server3→server1)
+Least Connections: route to server с fewest active connections
+IP Hash: consistent routing (same client → same server)
+Weighted Round Robin: distribute based на server capacity
+Least Response Time: route to fastest responding server
+```
+
+---
+
+## Вопрос 14
+
+**Reverse Proxy vs Forward Proxy**
+
+Reverse Proxy sits перед backend servers и forwards client requests to appropriate server, providing load balancing, SSL termination, caching, security (hiding backend topology); Forward Proxy sits перед clients и forwards their requests to internet, providing anonymity, content filtering, caching for clients; Reverse Proxy server-side (protects backends), Forward Proxy client-side (protects clients).
+
+**Reverse Proxy:**
+```
+Client → Reverse Proxy → Backend Servers
+
+Features:
+- Load balancing
+- SSL termination
+- Caching
+- Compression
+- Security (WAF)
+- Hide backend IPs
+
+Examples: Nginx, HAProxy, AWS ALB
+Use case: Production web applications
+```
+
+**Forward Proxy:**
+```
+Client → Forward Proxy → Internet
+
+Features:
+- Anonymity (hide client IP)
+- Content filtering
+- Caching (reduce bandwidth)
+- Access control
+
+Examples: Squid, Corporate proxies
+Use case: Corporate networks, privacy
+```
+
+---
+
+## Вопрос 15
+
+**API Gateway**
+
+API Gateway — это single entry point для всех client requests в microservices architecture, предоставляющий routing, authentication, rate limiting, request/response transformation, protocol translation, aggregation (combining multiple service calls), monitoring, и caching; abstracts internal architecture от clients, reducing coupling и enabling independent service evolution.
+
+**Функции:**
+```
+@Component
+public class ApiGateway {
+    
+    // 1. Authentication/Authorization
+    @PreAuthorize("hasRole('USER')")
+    public Response handleRequest(Request request) {
+        
+        // 2. Rate Limiting
+        if (rateLimiter.isExceeded(request.getUserId())) {
+            return Response.status(429).build();
+        }
+        
+        // 3. Request Routing
+        String service = routeToService(request.getPath());
+        
+        // 4. Load Balancing
+        ServiceInstance instance = loadBalancer.choose(service);
+        
+        // 5. Circuit Breaking
+        return circuitBreaker.execute(() -> 
+            instance.call(request)
+        );
+    }
+    
+    // 6. Response Aggregation
+    public UserProfile aggregateUserData(Long userId) {
+        CompletableFuture<User> userFuture = 
+            userService.getUser(userId);
+        CompletableFuture<Orders> ordersFuture = 
+            orderService.getOrders(userId);
+        CompletableFuture<Preferences> prefFuture = 
+            preferenceService.getPreferences(userId);
+            
+        return CompletableFuture.allOf(userFuture, ordersFuture, prefFuture)
+            .thenApply(v -> new UserProfile(
+                userFuture.join(),
+                ordersFuture.join(),
+                prefFuture.join()
+            ));
+    }
+}
+```
+
+**Popular gateways:** Kong, AWS API Gateway, Spring Cloud Gateway, Nginx, Envoy.
+
+---
+
+## Вопрос 16
+
+**Monolithic Architecture**
+
+Monolithic Architecture — это traditional approach где entire application built как single deployable unit с shared codebase, database, и memory space; все components (UI, business logic, data access) deployed together; simple для small applications но challenges с scaling (must scale entire app), deployment (any change requires full redeploy), technology lock-in, и team coordination для large codebases.
+
+**Характеристики:**
+```
+Single codebase
+Single deployment unit
+Shared database
+Tightly coupled components
+Single technology stack
+
+Example Structure:
+my-app.jar
+├── Controllers (REST APIs)
+├── Services (Business Logic)
+├── Repositories (Data Access)
+├── Models (Domain Objects)
+└── Configuration
+```
+
+**Pros:**
+```
+✅ Simple development (single codebase)
+✅ Easy debugging (single process)
+✅ Simple deployment (one artifact)
+✅ Easy testing (no distributed system complexity)
+✅ Better performance (no network calls)
+```
+
+**Cons:**
+```
+❌ Scaling challenges (must scale entire app)
+❌ Deployment risk (small change = full redeploy)
+❌ Technology lock-in (one stack для всего)
+❌ Large codebase (hard to navigate)
+❌ Long build times
+❌ Team coordination (merge conflicts)
+```
+
+---
+
+## Вопрос 17
+
+**Microservices Architecture**
+
+Microservices Architecture разбивает application на independent, loosely coupled services каждый responsible за specific business capability, deployed independently, с own database, communicating через APIs (REST, gRPC, messaging); enables independent scaling, technology diversity, faster deployments, team autonomy, но добавляет distributed system complexity, network latency, data consistency challenges.
+
+**Характеристики:**
+```
+Independent services
+Separate databases (database per service)
+Decentralized governance
+API-based communication
+Independent deployment
+Technology diversity
+
+Example:
+User Service (Java/Spring)
+Order Service (Go)
+Payment Service (Node.js)
+Notification Service (Python)
+```
+
+**Communication:**
+```
+Synchronous: REST APIs, gRPC
+Asynchronous: Message queues (Kafka, RabbitMQ)
+Service discovery: Consul, Eureka
+API Gateway: Kong, AWS API Gateway
+```
+
+**Pros:**
+```
+✅ Independent scaling
+✅ Independent deployment
+✅ Technology diversity
+✅ Team autonomy
+✅ Fault isolation
+✅ Easier to understand (smaller codebases)
+```
+
+**Cons:**
+```
+❌ Distributed system complexity
+❌ Network latency
+❌ Data consistency challenges
+❌ More infrastructure overhead
+❌ Debugging difficulty
+❌ Transaction management
+```
+
+---
+
+## Вопрос 18-30
+
+**(Краткие ответы для экономии места)**
+
+**18. SOA:** Service-Oriented Architecture с enterprise service bus (ESB), heavy protocols (SOAP/XML), coarse-grained services, shared database, centralized governance.
+
+**19. Event-Driven Architecture:** Асинхронная communication через events, producers publish events, consumers subscribe, decoupling, eventual consistency, examples: Kafka, RabbitMQ.
+
+**20. CQRS Pattern:** Command Query Responsibility Segregation, separate models для reads (queries) и writes (commands), optimized independently, eventual consistency между models.
+
+**21. Saga Pattern:** Distributed transaction management через sequence of local transactions, each with compensating transaction для rollback, координация через orchestration (central coordinator) или choreography (event-based).
+
+**22. Circuit Breaker:** Prevents cascade failures, states: Closed (normal), Open (failing, reject requests), Half-Open (test recovery), автоматический fallback to cached data.
+
+**23. Strangler Fig Pattern:** Gradually migrate monolith to microservices, routing layer directs traffic, new features in microservices, old features gradually migrated, zero-downtime migration.
+
+**24. Sidecar Pattern:** Auxiliary container/process alongside main application, handles cross-cutting concerns (logging, monitoring, service mesh proxy), examples: Envoy, Istio.
+
+**25. Backend for Frontend (BFF):** Separate backend для каждого frontend type (web, mobile, desktop), optimized для specific client needs, aggregates multiple service calls.
+
+**26. API Gateway Pattern:** Single entry point для all clients, routing, authentication, rate limiting, request transformation, response aggregation, protocol translation.
+
+**27. Service Mesh:** Infrastructure layer managing service-to-service communication, sidecar proxies (Envoy), traffic management, security (mTLS), observability, examples: Istio, Linkerd.
+
+**28. Database per Service:** Each microservice owns private database, full autonomy, independent scaling, data consistency через Saga or event sourcing.
+
+**29. Shared Database:** Multiple services access same database, simple но tight coupling, scaling challenges, schema changes affect all services, anti-pattern для microservices.
+
+**30. Two-Phase Commit vs Saga:** 2PC - blocking distributed transaction protocol с coordinator, всё или ничего; Saga - asynchronous compensating transactions, eventual consistency, better availability.
+
+---
+
+## Вопрос 31
+
+**SQL vs NoSQL**
+
+SQL databases (relational) используют structured schema, ACID transactions, table joins, vertical scaling, best для complex queries и strong consistency; NoSQL databases (document, key-value, column-family, graph) schema-flexible, eventual consistency, horizontal scaling, optimized для specific data models, best для high-scale read/write operations, semi-structured data.
+
+**Сравнение:**
+
+| Feature | SQL | NoSQL |
+|---------|-----|-------|
+| **Schema** | Fixed, predefined | Flexible, dynamic |
+| **Scaling** | Vertical (limited) | Horizontal (unlimited) |
+| **Consistency** | Strong (ACID) | Eventual (BASE) |
+| **Joins** | Built-in | Application-level |
+| **Transactions** | Multi-row ACID | Limited/none |
+| **Query Language** | SQL (standardized) | API-specific |
+| **Use Cases** | Banking, ERP | Social media, IoT |
+| **Examples** | PostgreSQL, MySQL | MongoDB, Cassandra |
+
+**SQL примеры:**
+```
+-- Complex joins, transactions
+BEGIN TRANSACTION;
+INSERT INTO orders (user_id, total) VALUES (1, 100);
+INSERT INTO order_items (order_id, product_id, qty) VALUES (LAST_INSERT_ID(), 5, 2);
+UPDATE products SET stock = stock - 2 WHERE id = 5;
+COMMIT;
+
+-- ACID guarantees
+```
+
+**NoSQL примеры:**
+```
+// MongoDB - Document store
+db.users.insertOne({
+  _id: ObjectId(),
+  name: "John",
+  orders: [ // Embedded data (denormalized)
+    { orderId: 1, total: 100, items: [...] }
+  ],
+  preferences: { theme: "dark", language: "en" }
+});
+
+// Flexible schema, no joins needed
+```
+
+**Когда SQL:**
+- Complex relationships и joins
+- ACID transactions required
+- Structured, stable schema
+- Business intelligence, reporting
+- Financial systems
+
+**Когда NoSQL:**
+- High-scale writes/reads
+- Flexible, evolving schema
+- Horizontal scaling needed
+- Key-value lookups
+- Time-series data, logs
+
+---
+
+## Вопрос 32
+
+**Database Indexing**
+
+Database Index — это data structure (обычно B-Tree) ускоряющий search operations через создание sorted reference to table rows; reads faster (O(log n) вместо O(n) full table scan) но writes slower (must update index), indexes consume storage, over-indexing degrades performance, выбирать columns для indexing based на query patterns.
+
+**Типы:**
+```
+-- Primary Key Index (automatic, unique, clustered)
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,  -- Auto-indexed
+  email VARCHAR(255),
+  name VARCHAR(255)
+);
+
+-- Unique Index (enforce uniqueness)
+CREATE UNIQUE INDEX idx_email ON users(email);
+
+-- Regular Index (speed up queries)
+CREATE INDEX idx_name ON users(name);
+
+-- Composite Index (multiple columns)
+CREATE INDEX idx_name_email ON users(name, email);
+
+-- Partial Index (filtered)
+CREATE INDEX idx_active_users ON users(email) WHERE active = true;
+
+-- Full-Text Index (text search)
+CREATE FULLTEXT INDEX idx_description ON products(description);
+```
+
+**Использование:**
+```
+-- Without index: Full table scan O(n)
+SELECT * FROM users WHERE email = 'john@example.com';
+-- Scans all rows
+
+-- With index: Tree search O(log n)
+-- Uses idx_email, finds row instantly
+```
+
+**Best practices:**
+- Index frequently queried columns (WHERE, JOIN, ORDER BY)
+- Composite indexes: column order matters (most selective first)
+- Avoid over-indexing (writes slower, storage overhead)
+- Monitor query performance (EXPLAIN ANALYZE)
+- Update statistics regularly
+
+---
+
+## Вопрос 33
+
+**Database Sharding**
+
+Sharding — это horizontal partitioning где database split across multiple servers (shards), каждый shard содержит subset of data based на shard key; enables horizontal scaling beyond single server capacity, distributes load, но добавляет complexity: cross-shard queries expensive, resharding difficult, choose shard key carefully (balanced distribution, avoid hotspots).
+
+**Sharding strategies:**
+
+**Hash-based sharding:**
+```
+Shard = hash(user_id) % num_shards
+
+user_id=1 → hash(1) % 4 = 1 → Shard 1
+user_id=2 → hash(2) % 4 = 2 → Shard 2
+user_id=3 → hash(3) % 4 = 3 → Shard 3
+user_id=4 → hash(4) % 4 = 0 → Shard 0
+
+Pros: Uniform distribution
+Cons: Resharding hard (changes hash mapping)
+```
+
+**Range-based sharding:**
+```
+Shard 1: user_id 1-1,000,000
+Shard 2: user_id 1,000,001-2,000,000
+Shard 3: user_id 2,000,001-3,000,000
+
+Pros: Simple, range queries efficient
+Cons: Unbalanced (hotspots if data skewed)
+```
+
+**Geographic sharding:**
+```
+Shard 1: users in US
+Shard 2: users in Europe
+Shard 3: users in Asia
+
+Pros: Low latency (data close to users)
+Cons: Unbalanced, complex routing
+```
+
+**Implementation:**
+```
+@Service
+public class ShardedUserRepository {
+    private final List<DataSource> shards;
+    
+    public User findById(Long userId) {
+        int shardIndex = Math.abs(userId.hashCode() % shards.size());
+        DataSource shard = shards.get(shardIndex);
+        return queryUserFromShard(shard, userId);
+    }
+    
+    // Cross-shard query (expensive!)
+    public List<User> findByName(String name) {
+        return shards.parallelStream()
+            .map(shard -> queryUsersByName(shard, name))
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
+    }
+}
+```
+
+**Challenges:**
+- Cross-shard joins (avoid through denormalization)
+- Distributed transactions (use Saga)
+- Resharding (add/remove shards)
+- Hotspots (celebrity users, trending data)
+- Data consistency
+
+---
+
+## Вопрос 34-45
+
+**(Краткие ответы)**
+
+**34. Partitioning:** Vertical (split table columns) или horizontal (split rows), within single database, simpler than sharding.
+
+**35. Replication:** Copy data to multiple servers, Master-Slave (writes to master, reads from replicas), async или sync, improves read scalability и availability.
+
+**36. Master-Slave Replication:** Single master (writes), multiple slaves (reads), async replication, read scaling, slave promotion при master failure.
+
+**37. Master-Master Replication:** Multiple masters (all accept writes), conflict resolution needed, active-active setup, higher write availability.
+
+**38. Denormalization:** Duplicate data to avoid joins, improves read performance, increases storage, data consistency challenge, cache invalidation needed.
+
+**39. Connection Pooling:** Reuse database connections, avoid connection overhead, HikariCP (Java), limit max connections, improves throughput.
+
+**40. N+1 Query Problem:** 1 query для list + N queries для each item details, solve: eager loading (JOIN), batch queries, caching.
+
+**41. Read Replicas:** Duplicate database для read-only queries, offload master, eventual consistency, monitor replication lag.
+
+**42. Write-Heavy vs Read-Heavy:** Write-heavy: sharding, write-optimized storage (Cassandra); Read-heavy: caching, read replicas, CDN.
+
+**43. Eventually Consistent Systems:** Temporary inconsistencies допустимы, replicas converge over time, high availability, conflict resolution strategies.
+
+**44. Distributed Transactions:** Координация transactions across multiple databases, 2PC (blocking) или Saga (compensating), avoid когда possible.
+
+**45. Migration Strategies:** Blue-green deployment, rolling migration, dual-write (old+new), shadow mode, feature flags, gradual cutover.
+
+---
+
+## Вопрос 46
+
+**Caching Strategies**
+
+Caching хранит frequently accessed data in fast storage (RAM) для reduced latency и decreased backend load; strategies: Cache-Aside (lazy load on cache miss), Write-Through (write to cache+DB synchronously), Write-Behind (write to cache, async to DB), Read-Through (cache auto-loads from DB); choose based на read/write ratio, consistency requirements, acceptable staleness.
+
+**Levels:**
+```
+1. Client-side cache (browser, mobile app)
+2. CDN cache (static content globally)
+3. Application cache (in-memory, Redis)
+4. Database cache (query result cache)
+```
+
+**Cache-Aside (Lazy Loading):**
+```
+public Product getProduct(Long id) {
+    // Try cache first
+    Product cached = cache.get("product:" + id);
+    if (cached != null) {
+        return cached; // Cache hit
+    }
+    
+    // Cache miss: load from DB
+    Product product = productRepository.findById(id);
+    
+    // Store in cache
+    cache.set("product:" + id, product, TTL);
+    
+    return product;
+}
+```
+
+**Write-Through:**
+```
+public void updateProduct(Product product) {
+    // Write to cache first
+    cache.set("product:" + product.getId(), product);
+    
+    // Then write to DB (synchronous)
+    productRepository.save(product);
+    
+    // Always consistent: cache mirrors DB
+}
+```
+
+**Write-Behind (Write-Back):**
+```
+public void updateProduct(Product product) {
+    // Write to cache immediately
+    cache.set("product:" + product.getId(), product);
+    
+    // Schedule async write to DB
+    queue.add(new WriteTask(product));
+    
+    // Fast response, eventual consistency
+}
+```
+
+---
+
+## Вопрос 47-60
+
+**(Краткие ответы продолжение)**
+
+**47. Cache-Aside:** Application manages cache, lazy loading, cache miss loads from DB, manual invalidation, flexible но boilerplate code.
+
+**48. Write-Through:** Write to cache+DB synchronously, always consistent, higher write latency, no stale data.
+
+**49. Write-Behind:** Write to cache immediately, async DB write, fast writes, risk data loss если cache crashes, eventual consistency.
+
+**50. Cache Invalidation:** TTL (time-based expiry), event-based (invalidate on update), LRU eviction, hardest problem в computer science.
+
+**51. Redis vs Memcached:** Redis: data structures (list, set, hash), persistence, pub/sub, Lua scripts; Memcached: simple key-value, faster для pure caching, no persistence.
+
+**52. CDN:** Content Delivery Network, caches static content (images, CSS, JS) globally, reduces latency, examples: CloudFront, Cloudflare, Akamai.
+
+**53. Cache Eviction:** LRU (Least Recently Used), LFU (Least Frequently Used), FIFO, Random, TTL-based expiration.
+
+**54. Cache Stampede:** Multiple requests miss cache simultaneously, overwhelm DB loading same data, solutions: locking, early expiration, stale-while-revalidate.
+
+**55. HTTP Caching:** Browser/CDN caching через headers (Cache-Control, ETag), 304 Not Modified, reduces server load.
+
+**56. Load Balancing Algorithms:** Round Robin, Least Connections, IP Hash, Weighted, Least Response Time, Random.
+
+**57. Rate Limiting:** Limit requests per user/IP, algorithms: Token Bucket, Leaky Bucket, Fixed Window, Sliding Window, protects от abuse.
+
+**58. Throttling vs Rate Limiting:** Rate Limiting - hard limit (reject excess); Throttling - delay/queue requests (slower response).
+
+**59. Message Queues:** Async communication, decouple producers/consumers, examples: Kafka (high-throughput log), RabbitMQ (traditional queue), SQS (managed).
+
+**60. Asynchronous Processing:** Non-blocking operations, background jobs, event-driven, improves responsiveness, eventual consistency.
+
+---
+
+## Вопрос 61
+
+**Design URL Shortener (TinyURL)**
+
+**Requirements:**
+- Functional: Generate short URL from long URL, redirect short→long, custom aliases optional, expiration support
+- Non-functional: High availability, low latency (<100ms), 1M new URLs/day, 100:1 read/write ratio
+
+**High-level design:**
+```
+Client
+  ↓
+Load Balancer
+  ↓
+API Servers (stateless)
+  ↓ ↓ ↓
+Cache (Redis) ←→ Database (sharded)
+  ↓
+ID Generator (distributed, unique IDs)
+```
+
+**Database schema:**
+```
+CREATE TABLE urls (
+  id BIGINT PRIMARY KEY,
+  short_code VARCHAR(10) UNIQUE,
+  long_url TEXT,
+  user_id BIGINT,
+  created_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  clicks BIGINT DEFAULT 0,
+  INDEX idx_short_code (short_code)
+);
+```
+
+**Encoding algorithm:**
+```
+// Base62 encoding (0-9, a-z, A-Z)
+public String generateShortCode(Long id) {
+    String base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    StringBuilder result = new StringBuilder();
+    
+    while (id > 0) {
+        result.append(base62.charAt((int)(id % 62)));
+        id /= 62;
+    }
+    
+    return result.reverse().toString(); // e.g., "aB3xK9"
+}
+
+// ID=125 → "21" (7 chars ≈ 3.5 trillion URLs)
+```
+
+**API:**
+```
+// Create short URL
+POST /api/shorten
+{
+  "longUrl": "https://example.com/very/long/url",
+  "customAlias": "mylink", // optional
+  "expiresAt": "2025-12-31" // optional
+}
+
+Response: { "shortUrl": "https://short.ly/aB3xK9" }
+
+// Redirect
+GET /aB3xK9
+→ 301 Redirect to longUrl
+```
+
+**Caching strategy:**
+```
+Cache popular URLs (80/20 rule)
+Cache-Aside: check cache → DB on miss
+TTL: 24 hours
+Eviction: LRU
+```
+
+**Scalability:**
+- Sharding: hash(short_code) % shards
+- Read replicas: 100:1 ratio
+- CDN: не применимо (dynamic redirects)
+
+---
+
+## Вопрос 62
+
+**Design Social Media Feed (Twitter/Instagram)**
+
+**Requirements:**
+- Functional: Post tweets, follow users, timeline (tweets from followed users), trending topics
+- Non-functional: 100M DAU, 10K tweets/sec, timeline load <200ms, eventual consistency OK
+
+**High-level design:**
+```
+Client
+  ↓
+Load Balancer / CDN
+  ↓
+API Gateway
+  ↓ ↓ ↓ ↓
+User Service | Tweet Service | Timeline Service | Trend Service
+  ↓              ↓                 ↓                ↓
+User DB      Tweet DB         Timeline Cache    Analytics DB
+             (Cassandra)       (Redis)
+```
+
+**Data models:**
+```
+-- Users (sharded by user_id)
+users: { id, username, bio, followers_count, following_count }
+
+-- Tweets (sharded by tweet_id, replicated)
+tweets: { id, user_id, content, created_at, likes, retweets }
+
+-- Follower graph (sharded by follower_id)
+follows: { follower_id, followee_id, created_at }
+
+-- Timeline (Redis sorted set)
+timeline:{user_id} → [(tweet_id, timestamp), ...]
+```
+
+**Tweet creation:**
+```
+public void postTweet(Long userId, String content) {
+    // 1. Store tweet
+    Tweet tweet = new Tweet(generateId(), userId, content, now());
+    tweetRepository.save(tweet); // Cassandra
+    
+    // 2. Fan-out to followers' timelines (async)
+    List<Long> followers = getFollowers(userId);
+    for (Long followerId : followers) {
+        messageQueue.send(new TimelineUpdateEvent(followerId, tweet.getId()));
+    }
+}
+
+// Timeline worker (consumes queue)
+public void updateTimeline(Long userId, Long tweetId) {
+    redis.zadd("timeline:" + userId, timestamp, tweetId);
+    redis.zremrangeByRank("timeline:" + userId, 0, -1001); // Keep latest 1000
+}
+```
+
+**Timeline loading:**
+```
+public List<Tweet> getTimeline(Long userId, int limit) {
+    // 1. Get tweet IDs from Redis
+    Set<Long> tweetIds = redis.zrevrange("timeline:" + userId, 0, limit - 1);
+    
+    // 2. Hydrate tweets (batch query)
+    return tweetRepository.findByIds(tweetIds);
+}
+```
+
+**Fan-out strategies:**
+- Fan-out on write (push): pre-compute timelines, fast reads, slow writes, high storage
+- Fan-out on read (pull): compute timeline on request, slow reads, fast writes
+- Hybrid: celebrities (pull), normal users (push)
+
+---
+
+## Вопрос 63
+
+**Design Chat Application (WhatsApp/Slack)**
+
+**Requirements:**
+- Functional: 1-on-1 messaging, group chat, online/offline status, message history, read receipts
+- Non-functional: Real-time delivery (<1s), 1B users, 100B messages/day, high availability
+
+**High-level design:**
+```
+Client (WebSocket)
+  ↓
+WebSocket Gateway (stateful)
+  ↓
+Message Queue (Kafka)
+  ↓ ↓ ↓
+Chat Service | Presence Service | Notification Service
+  ↓              ↓                   ↓
+Message DB   User Cache          Push Service
+(Cassandra)  (Redis)             (FCM/APNs)
+```
+
+**WebSocket connection:**
+```
+@ServerEndpoint("/ws/chat")
+public class ChatWebSocket {
+    private static Map<Long, Session> sessions = new ConcurrentHashMap<>();
+    
+    @OnOpen
+    public void onOpen(Session session, @PathParam("userId") Long userId) {
+        sessions.put(userId, session);
+        presenceService.setOnline(userId);
+    }
+    
+    @OnMessage
+    public void onMessage(String message, Session session) {
+        ChatMessage msg = parseMessage(message);
+        
+        // Persist message
+        messageRepository.save(msg);
+        
+        // Deliver to recipient
+        Session recipientSession = sessions.get(msg.getRecipientId());
+        if (recipientSession != null && recipientSession.isOpen()) {
+            recipientSession.getBasicRemote().sendText(message); // Real-time
+        } else {
+            // Offline: send push notification
+            pushNotificationService.send(msg.getRecipientId(), msg);
+        }
+    }
+}
+```
+
+**Message storage:**
+```
+-- Cassandra (partition by chat_id, sorted by timestamp)
+CREATE TABLE messages (
+  chat_id UUID,
+  timestamp TIMESTAMP,
+  message_id UUID,
+  sender_id BIGINT,
+  content TEXT,
+  PRIMARY KEY (chat_id, timestamp, message_id)
+) WITH CLUSTERING ORDER BY (timestamp DESC);
+```
+
+**Group chat:**
+```
+public void sendGroupMessage(Long groupId, ChatMessage message) {
+    // 1. Save message
+    messageRepository.save(message);
+    
+    // 2. Get group members
+    List<Long> members = groupService.getMembers(groupId);
+    
+    // 3. Broadcast to online members
+    members.parallelStream().forEach(memberId -> {
+        Session session = sessions.get(memberId);
+        if (session != null && session.isOpen()) {
+            session.sendMessage(message);
+        }
+    });
+}
+```
+
+**Presence (online/offline):**
+```
+// Redis with TTL
+public void setOnline(Long userId) {
+    redis.setex("presence:" + userId, 300, "online"); // 5 min TTL
+}
+
+// Heartbeat every 1 minute
+scheduledExecutor.scheduleAtFixedRate(() -> {
+    redis.expire("presence:" + userId, 300); // Refresh TTL
+}, 0, 60, TimeUnit.SECONDS);
+```
+
+---
+
+## Вопрос 64
+
+**Monitoring и Observability**
+
+Monitoring собирает metrics (CPU, memory, request rate, latency, errors), alerting при thresholds; Observability понимает internal state through external outputs: metrics (quantitative), logs (events), traces (request flow); включает dashboards (Grafana), APM (Application Performance Monitoring), distributed tracing (Jaeger), log aggregation (ELK), synthetic monitoring, SLIs/SLOs/SLAs.
+
+**Three Pillars:**
+
+**Metrics:**
+```
+System metrics: CPU, memory, disk, network
+Application metrics: request rate, latency, error rate
+Business metrics: signups, purchases, revenue
+
+Tools: Prometheus, Grafana, Datadog, New Relic
+
+Example:
+http_requests_total{method="GET", status="200"} 10543
+http_request_duration_seconds{quantile="0.99"} 0.15
+```
+
+**Logs:**
+```
+Structured logging с context
+Centralized aggregation
+Search and analysis
+
+Tools: ELK Stack (Elasticsearch, Logstash, Kibana), Loki
+
+Example:
+{
+  "timestamp": "2025-10-21T01:00:00Z",
+  "level": "ERROR",
+  "service": "order-service",
+  "trace_id": "abc123",
+  "message": "Payment failed",
+  "user_id": 12345,
+  "error": "InsufficientFunds"
+}
+```
+
+**Traces:**
+```
+Distributed request tracing across microservices
+Visualize latency bottlenecks
+Correlate logs/metrics
+
+Tools: Jaeger, Zipkin, AWS X-Ray
+
+Example:
+Request → API Gateway (5ms)
+        → Auth Service (10ms)
+        → Order Service (50ms)
+          → Database (40ms)
+          → Payment Service (100ms)
+Total: 165ms (Payment bottleneck identified!)
+```
+
+**SLIs/SLOs/SLAs:**
+```
+SLI (Service Level Indicator): метрика (e.g., request latency)
+SLO (Service Level Objective): цель (e.g., 99.9% requests < 200ms)
+SLA (Service Level Agreement): contract с penalties
+
+Example:
+SLI: p99 latency
+SLO: p99 < 200ms для 99.9% requests
+SLA: Uptime 99.95% или refund
+```
+
+---
+
+## Вопрос 65
+
+**System Design Interview Process**
+
+System Design Interview оценивает способность проектировать scalable distributed systems, problem-solving approach, trade-off decisions, communication skills; длительность 45-60 минут: requirements clarification (5-10 min), high-level design (15-20 min), deep dive (20-30 min), discussion trade-offs и bottlenecks; не существует "correct" solution, важен процесс reasoning и обоснование решений.
+
+**Этапы:**
+
+**1. Requirements Clarification (5-10 min):**
+```
+Вопросы interviewer:
+- Who are users? (consumers, businesses, admins)
+- What features needed? (MVP vs future)
+- Scale expectations? (DAU, QPS, data volume)
+- Performance requirements? (latency, throughput)
+- Availability requirements? (99.9%, 99.99%)
+- Consistency requirements? (strong vs eventual)
+- Budget constraints?
+
+Пример:
+"For URL shortener:
+- 100M DAU
+- 1M new URLs/day
+- 100:1 read/write ratio
+- Latency < 100ms
+- 99.9% availability
+- Eventual consistency OK"
+```
+
+**2. High-Level Design (15-20 min):**
+```
+Draw architecture diagram:
+- Major components (client, LB, API, DB, cache)
+- Data flow arrows
+- APIs (REST endpoints)
+- Database choice (SQL vs NoSQL)
+
+Explain:
+- Why each component needed
+- How components interact
+- What protocols used
+```
+
+**3. Deep Dive (20-30 min):**
+```
+Interviewer picks areas:
+- Database schema
+- Scaling strategy (sharding, replication)
+- Caching layer
+- Security (auth, rate limiting)
+- Monitoring
+
+Показать:
+- Algorithms (URL encoding, consistent hashing)
+- Data models (tables, indexes)
+- Trade-offs discussed
+```
+
+**4. Bottlenecks & Trade-offs (10-15 min):**
+```
+Identify:
+- Single points of failure → add redundancy
+- Performance bottlenecks → caching, sharding
+- Security concerns → authentication, encryption
+- Cost optimizations → right-sizing, autoscaling
+
+Discuss alternatives:
+"We chose Cassandra for high write throughput,
+but PostgreSQL with sharding could work too.
+Trade-off: Cassandra eventual consistency vs
+PostgreSQL strong consistency."
+```
+
+**Tips:**
+- Start broad, then dive deep
+- Think aloud (communicate reasoning)
+- Ask clarifying questions (don't assume)
+- Discuss trade-offs (no perfect solution)
+- Use whiteboard effectively
+- Consider real-world constraints (cost, time, team size)
+- Practice common designs (URL shortener, Twitter, Instagram, Uber)
+
+**Common patterns:**
+- Load Balancer для scalability
+- Cache для performance
+- Async processing для decoupling
+- Sharding для large data
+- Replication для availability
+- CDN для static content
+
+**Red flags:**
+- Assuming requirements (ask!)
+- Over-engineering (KISS principle)
+- Ignoring constraints (scale, budget)
+- Not discussing trade-offs
+- Poor communication
